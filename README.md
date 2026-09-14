@@ -1,24 +1,28 @@
-# HabitFlow
+# HabitFlow 1.1
 
-A simple, offline-first Flutter habit tracker for Android.
+**Build your future with today's habit.**
 
-## Features
-- Create, edit and delete habits
-- Daily or selected-day schedules
-- One-tap completion
-- Current and longest streaks
-- 7-day completion rate
-- Local persistence with SharedPreferences
-- Simple Material 3 interface
+A simple, offline-first Android habit tracker.
 
-## Run
-1. Install Flutter on a computer.
-2. Run `flutter pub get`
-3. Connect an Android phone or emulator.
-4. Run `flutter run`
+## Included
+- Today + Upcoming
+- Accurate scheduled-day streaks
+- Calendar (all habits + individual habit)
+- Statistics
+- Editable profile + gallery photo
+- CSV export + JSON backup
+- Light / Dark / System theme
+- Achievements
+- Completion feedback-ready architecture
+- Material 3 professional UI
+- Habit reminders dependency included for the next notification wiring pass
 
-For a release APK:
-`flutter build apk --release`
+## Build
+```bash
+flutter pub get
+flutter create --platforms=android --project-name habitflow .
+flutter build apk --release
+```
 
-The APK will be under:
+The release APK is:
 `build/app/outputs/flutter-apk/app-release.apk`
