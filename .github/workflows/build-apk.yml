@@ -59,8 +59,44 @@ jobs:
           sed -i 's/compileSdk 34/compileSdk 36/g' "$FILE_PICKER_DIR/android/build.gradle"
           grep -n "compileSdk" "$FILE_PICKER_DIR/android/build.gradle"
 
+      - name: Repair Dart source and lint issues
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('lib/main.dart')
+          s = p.read_text()
+
+          pattern = re.compile(r"  void themeDialog\(BuildContext c\) => showDialog<void>\(.*?\n  void achievements", re.S)
+          replacement = '''  void themeDialog(BuildContext c) => showDialog<void>(
+    context: c,
+    builder: (x) => SimpleDialog(
+      title: const Text('Appearance'),
+      children: ThemeMode.values.map((m) => SimpleDialogOption(
+        onPressed: () {
+          store.setMode(m);
+          Navigator.pop(x);
+        },
+        child: Row(children: [
+          Icon(store.mode == m ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+          const SizedBox(width: 12),
+          Text(m.name),
+        ]),
+      )).toList(),
+    ),
+  );
+  void achievements'''
+          s2, count = pattern.subn(replacement, s, count=1)
+          if count != 1:
+              raise SystemExit('Expected themeDialog block was not found')
+          p.write_text(s2)
+          PY
+          dart fix --apply
+          dart format lib/main.dart
+
       - name: Verify Dart code
-        run: flutter analyze lib
+        run: flutter analyze lib --fatal-infos --fatal-warnings
 
       - name: Build release APK
         run: flutter build apk --release
