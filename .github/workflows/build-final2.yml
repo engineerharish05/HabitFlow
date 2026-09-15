@@ -1,0 +1,112 @@
+name: HabitFlow Final APK Build 2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Prepare Android project
+        run: flutter create --platforms=android --project-name habitflow .
+      - name: Configure Android SDK and notifications
+        run: |
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
+          sed -i '/^dependencies {/a\    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' android/app/build.gradle.kts
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          if 'isCoreLibraryDesugaringEnabled = true' not in s:
+              s = s.replace('    defaultConfig {', '    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n        isCoreLibraryDesugaringEnabled = true\n    }\n\n    defaultConfig {')
+          p.write_text(s)
+          m = Path('android/app/src/main/AndroidManifest.xml')
+          s = m.read_text()
+          s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />')
+          receiver = '''        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED" />\n                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />\n                <action android:name="android.intent.action.QUICKBOOT_POWERON" />\n                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />\n            </intent-filter>\n        </receiver>\n'''
+          if 'ScheduledNotificationReceiver' not in s:
+              s = s.replace('</application>', receiver + '    </application>')
+          m.write_text(s)
+          PY
+          grep -n 'compileSdk\|coreLibraryDesugaring\|isCoreLibraryDesugaringEnabled' android/app/build.gradle.kts
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Patch file_picker Android compile SDK
+        run: |
+          FILE_PICKER_DIR="$PUB_CACHE/hosted/pub.dev/file_picker-8.1.7"
+          test -f "$FILE_PICKER_DIR/android/build.gradle"
+          sed -i 's/compileSdk 34/compileSdk 36/g' "$FILE_PICKER_DIR/android/build.gradle"
+      - name: Repair Dart source
+        run: |
+          head -n 330 lib/main.dart > /tmp/main.dart
+          cat >> /tmp/main.dart <<'DART'
+          @override
+          Widget build(BuildContext c) => ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text('Profile', style: Theme.of(c).textTheme.headlineSmall),
+              ListTile(title: Text(store.name.isEmpty ? 'Your name' : store.name), trailing: IconButton(onPressed: () => profileEditor(c), icon: const Icon(Icons.edit_outlined))),
+              ListTile(title: const Text('Completions'), trailing: Text('${store.habits.fold<int>(0, (s, h) => s + h.doneDates.length)}')),
+              ListTile(title: const Text('Best streak'), trailing: Text('${store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m)}')),
+              ListTile(title: const Text('Export CSV'), onTap: csvExport),
+              ListTile(title: const Text('Backup JSON'), onTap: backup),
+              ListTile(title: const Text('Restore JSON'), onTap: () => restore(c)),
+              ListTile(title: const Text('Appearance'), subtitle: Text(store.mode.name), onTap: () => themeDialog(c)),
+              ListTile(title: const Text('Achievements'), onTap: () => achievements(c)),
+            ],
+          );
+          void themeDialog(BuildContext c) {
+            showDialog<void>(context: c, builder: (d) => SimpleDialog(title: const Text('Appearance'), children: ThemeMode.values.map((m) => SimpleDialogOption(onPressed: () { store.setMode(m); Navigator.pop(d); }, child: Text(m.name))).toList()));
+          }
+          void achievements(BuildContext c) {
+            final done = store.habits.fold<int>(0, (s, h) => s + h.doneDates.length);
+            final best = store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m);
+            showModalBottomSheet<void>(context: c, builder: (_) => ListView(padding: const EdgeInsets.all(20), children: [const Text('Achievements'), Achievement('🌱', 'First Habit', store.habits.isNotEmpty), Achievement('🔥', '7-day Streak', best >= 7), Achievement('🚀', '30-day Streak', best >= 30), Achievement('💯', '100 Check-ins', done >= 100)]));
+          }
+          }
+          class Achievement extends StatelessWidget {
+            const Achievement(this.icon, this.title, this.ok, {super.key});
+            final String icon, title;
+            final bool ok;
+            @override
+            Widget build(BuildContext c) => ListTile(leading: CircleAvatar(child: Text(icon)), title: Text(title), trailing: Icon(ok ? Icons.check_circle : Icons.lock_outline));
+          }
+          Future<void> editHabit(BuildContext c, Store s, {Habit? habit}) async {
+            final name = TextEditingController(text: habit?.name ?? '');
+            var icon = habit?.icon ?? '🎯';
+            var days = List<int>.from(habit?.days ?? [1, 2, 3, 4, 5, 6, 7]);
+            int? reminder = habit?.reminderMinute;
+            await showDialog<void>(context: c, builder: (d) => StatefulBuilder(builder: (d, set) => AlertDialog(
+              title: Text(habit == null ? 'Create habit' : 'Edit habit'),
+              content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(controller: name, decoration: const InputDecoration(labelText: 'Habit name')),
+                DropdownButtonFormField<String>(initialValue: icon, items: const ['🎯','📚','💧','🏃','🧘','💻','🛌','🥗','🎸','🧠'].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(), onChanged: (v) { if (v != null) set(() => icon = v); }),
+                Wrap(spacing: 4, children: List.generate(7, (i) { final day=i+1; return FilterChip(label: Text(['M','T','W','T','F','S','S'][i]), selected: days.contains(day), onSelected: (v) => set(() { if (v) { if (!days.contains(day)) days.add(day); } else { days.remove(day); } })); })),
+                SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('One reminder'), value: reminder != null, onChanged: (v) async { if (!v) { set(() => reminder = null); return; } final t = await showTimePicker(context: d, initialTime: const TimeOfDay(hour: 20, minute: 0)); if (t != null) set(() => reminder = t.hour * 60 + t.minute); }),
+              ])),
+              actions: [
+                if (habit != null) TextButton(onPressed: () async { await s.remove(habit); if (d.mounted) Navigator.pop(d); }, child: const Text('Delete')),
+                TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+                FilledButton(onPressed: name.text.trim().isEmpty || days.isEmpty ? null : () async { if (habit == null) { await s.add(name.text, icon, days, reminder); } else { await s.edit(habit, name.text, icon, days, reminder); } if (d.mounted) Navigator.pop(d); }, child: Text(habit == null ? 'Create' : 'Save')),
+              ],
+            )));
+          }
+          DART
+          mv /tmp/main.dart lib/main.dart
+          dart format lib/main.dart
+          flutter analyze lib || true
+      - name: Build release APK
+        run: flutter build apk --release
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HabitFlow-APK-Final2
+          path: build/app/outputs/flutter-apk/app-release.apk
