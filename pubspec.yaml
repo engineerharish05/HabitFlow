@@ -1,7 +1,7 @@
 name: habitflow
 description: HabitFlow - Build your future with today's habit.
 publish_to: 'none'
-version: 2.0.0+1
+version: 2.1.0+2
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -16,6 +16,9 @@ dependencies:
   share_plus: ^10.1.4
   path_provider: ^2.1.5
   file_picker: 8.1.7
+  flutter_local_notifications: 19.5.0
+  flutter_timezone: ^5.0.0
+  timezone: 0.10.1
 
 dev_dependencies:
   flutter_test:
