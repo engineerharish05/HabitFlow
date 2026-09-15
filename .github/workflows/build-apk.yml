@@ -16,8 +16,20 @@ jobs:
           channel: stable
       - name: Create Android project
         run: flutter create --platforms=android --project-name habitflow .
-      - name: Set Android compile SDK
+      - name: Set Android SDK
         run: sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
+      - name: Configure notification manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          text=p.read_text()
+          text=text.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />')
+          marker='    <application'
+          receivers='''    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />\n    <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n        <intent-filter>\n            <action android:name="android.intent.action.BOOT_COMPLETED"/>\n            <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>\n            <action android:name="android.intent.action.QUICKBOOT_POWERON"/>\n            <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>\n        </intent-filter>\n    </receiver>\n'''
+          text=text.replace(marker, receivers+marker, 1)
+          p.write_text(text)
+          PY
       - name: Install dependencies
         run: flutter pub get
       - name: Patch file_picker
@@ -25,34 +37,12 @@ jobs:
           f="$PUB_CACHE/hosted/pub.dev/file_picker-8.1.7/android/build.gradle"
           test -f "$f"
           sed -i 's/compileSdk 34/compileSdk 36/g' "$f"
-      - name: Debug source pass 1
+      - name: Format and analyze
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('lib/main.dart'); lines=p.read_text().splitlines(); out=[]; i=0
-          while i < len(lines):
-            if lines[i].startswith('class Today extends StatelessWidget'):
-              out += ['class Today extends StatelessWidget {','  const Today({super.key});','  @override Widget build(BuildContext c) {','    final d=day(DateTime.now());','    final today=s.habits.where((h)=>h.scheduled(d)).toList();','    final upcoming=<String>[];','    for(final h in s.habits.where((h)=>!h.scheduled(d))) { for(int x=1;x<=7;x++){ final n=d.add(Duration(days:x)); if(h.scheduled(n)){ upcoming.add("${h.icon} ${h.name} • ${DateFormat(\'EEE, d MMM\').format(n)}"); break; } } }','    return ListView(padding:const EdgeInsets.fromLTRB(16,8,16,100),children:[','      Text(DateFormat(\'EEEE, d MMMM\').format(d)),','      Text(\'Today\',style:Theme.of(c).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),','      const SizedBox(height:16),','      if(today.isEmpty) const Card(child:Padding(padding:EdgeInsets.all(24),child:Center(child:Text(\'No habits scheduled today\')))),','      ...today.map((h)=>Card(child:ListTile(leading:CircleAvatar(child:Text(h.icon)),title:Text(h.name),subtitle:Text("🔥 ${h.current()} day streak"),trailing:Checkbox(value:h.complete(d),onChanged:(_)=>s.toggle(h,d)),onTap:()=>habitDialog(c,habit:h)))),','      if(upcoming.isNotEmpty) ...[const SizedBox(height:18),Text(\'Upcoming\',style:Theme.of(c).textTheme.titleLarge),...upcoming.map((x)=>ListTile(leading:const Icon(Icons.event_outlined),title:Text(x)))]','    ]);','  }','}']; i+=1; continue
-            if lines[i].startswith('class Stats extends StatelessWidget'):
-              out += ['class Stats extends StatelessWidget {','  const Stats({super.key});','  @override Widget build(BuildContext c) {','    final done=s.habits.fold<int>(0,(a,h)=>a+h.done.length);','    final best=s.habits.fold<int>(0,(a,h)=>h.best()>a?h.best():a);','    final current=s.habits.fold<int>(0,(a,h)=>h.current()>a?h.current():a);','    return ListView(padding:const EdgeInsets.all(16),children:[','      Text(\'Progress\',style:Theme.of(c).textTheme.headlineMedium?.copyWith(fontWeight:FontWeight.bold)),','      const SizedBox(height:16),','      Wrap(spacing:10,runSpacing:10,children:[metric(c,\'Habits\',\'${s.habits.length}\',Icons.checklist),metric(c,\'Check-ins\',\'$done\',Icons.done_all),metric(c,\'Current streak\',\'$current\',Icons.local_fire_department),metric(c,\'Best streak\',\'$best\',Icons.emoji_events)]),','      const SizedBox(height:20),','      ...s.habits.map((h)=>ListTile(leading:CircleAvatar(child:Text(h.icon)),title:Text(h.name),subtitle:Text(\'${h.done.length} check-ins • best ${h.best()} days\'),trailing:Text(\'${h.current()}🔥\')))','    ]);','  }','}']; i+=1; continue
-            out.append(lines[i]); i+=1
-          p.write_text('\n'.join(out)+'\n')
-          PY
           dart format lib/main.dart
           flutter analyze lib --no-fatal-infos --no-fatal-warnings
-      - name: Debug source pass 2
-        run: flutter analyze lib --no-fatal-infos --no-fatal-warnings
-      - name: Debug source pass 3
-        run: dart format --output=none --set-exit-if-changed lib/main.dart && flutter analyze lib --no-fatal-infos --no-fatal-warnings
       - name: Build release APK
         run: flutter build apk --release
-      - name: Persist source repairs
-        run: |
-          if ! git diff --quiet -- lib/main.dart; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add lib/main.dart && git commit -m 'Persist verified source repairs' && git push
-          fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
