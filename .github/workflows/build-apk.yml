@@ -93,6 +93,8 @@ jobs:
             );
           }
 
+          }
+
           class Achievement extends StatelessWidget {
             const Achievement(this.icon, this.title, this.ok, {super.key});
             final String icon, title;
