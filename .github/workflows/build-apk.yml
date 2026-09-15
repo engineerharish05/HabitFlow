@@ -47,7 +47,116 @@ jobs:
           sed -i 's/compileSdk 34/compileSdk 36/g' "$FILE_PICKER_DIR/android/build.gradle"
       - name: Repair Dart source
         run: |
-          python3 -c "from pathlib import Path; p=Path('lib/main.dart'); s=p.read_text(); lines=s.splitlines(); lines[330]=\"  @override Widget build(BuildContext c) => ListView(padding: const EdgeInsets.all(20), children: [Text('Profile', style: Theme.of(c).textTheme.headlineSmall), ListTile(title: Text(store.name.isEmpty ? 'Your name' : store.name), trailing: IconButton(onPressed: () => profileEditor(c), icon: const Icon(Icons.edit_outlined))), ListTile(title: const Text('Completions'), trailing: Text('${store.habits.fold<int>(0, (s, h) => s + h.doneDates.length)}')), ListTile(title: const Text('Best streak'), trailing: Text('${store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m)}')), ListTile(title: const Text('Export CSV'), onTap: csvExport), ListTile(title: const Text('Backup JSON'), onTap: backup), ListTile(title: const Text('Restore JSON'), onTap: () => restore(c)), ListTile(title: const Text('Appearance'), onTap: () => themeDialog(c)), ListTile(title: const Text('Achievements'), onTap: () => achievements(c))]);\"; lines[331]=\"  void themeDialog(BuildContext c) => showDialog<void>(context: c, builder: (d) => SimpleDialog(title: const Text('Appearance'), children: ThemeMode.values.map((m) => SimpleDialogOption(onPressed: () { store.setMode(m); Navigator.pop(d); }, child: Text(m.name))).toList()));\n  void achievements(BuildContext c) { final done=store.habits.fold<int>(0,(s,h)=>s+h.doneDates.length); final best=store.habits.fold<int>(0,(m,h)=>h.bestStreak()>m?h.bestStreak():m); showModalBottomSheet<void>(context:c,builder:(_)=>ListView(children:[const Text('Achievements'),Achievement('🌱','First Habit',store.habits.isNotEmpty),Achievement('🔥','7-day Streak',best>=7),Achievement('🚀','30-day Streak',best>=30),Achievement('💯','100 Check-ins',done>=100)])); }\"; a=s.index('Future<void> editHabit'); r=__import__('base64').b64decode('RnV0dXJlPHZvaWQ+IGVkaXRIYWJpdChCdWlsZENvbnRleHQgYywgU3RvcmUgcywge0hhYml0PyBoYWJpdH0pIGFzeW5jIHsKICBmaW5hbCBuYW1lID0gVGV4dEVkaXRpbmdDb250cm9sbGVyKHRleHQ6IGhhYml0Py5uYW1lID8/ICcnKTsKICB2YXIgaWNvbiA9IGhhYml0Py5pY29uID8/ICfwn46vJzsKICB2YXIgZGF5cyA9IExpc3Q8aW50Pi5mcm9tKGhhYml0Py5kYXlzID8/IFsxLDIsMyw0LDUsNiw3XSk7CiAgaW50PyByZW1pbmRlciA9IGhhYml0Py5yZW1pbmRlck1pbnV0ZTsKICBhd2FpdCBzaG93RGlhbG9nPHZvaWQ+KAogICAgY29udGV4dDogYywKICAgIGJ1aWxkZXI6IChkKSA9PiBTdGF0ZWZ1bEJ1aWxkZXIoCiAgICAgIGJ1aWxkZXI6IChkLCBzZXQpID0+IEFsZXJ0RGlhbG9nKAogICAgICAgIHRpdGxlOiBUZXh0KGhhYml0ID09IG51bGwgPyAnQ3JlYXRlIGhhYml0JyA6ICdFZGl0IGhhYml0JyksCiAgICAgICAgY29udGVudDogU2luZ2xlQ2hpbGRTY3JvbGxWaWV3KGNoaWxkOiBDb2x1bW4obWFpbkF4aXNTaXplOiBNYWluQXhpc1NpemUubWluLCBjaGlsZHJlbjogWwogICAgICAgICAgVGV4dEZpZWxkKGNvbnRyb2xsZXI6IG5hbWUsIGRlY29yYXRpb246IGNvbnN0IElucHV0RGVjb3JhdGlvbihsYWJlbFRleHQ6ICdIYWJpdCBuYW1lJykpLAogICAgICAgICAgY29uc3QgU2l6ZUJveChoZWlnaHQ6IDEyKSwKICAgICAgICAgIERyb3Bkb3duQnV0dG9uRm9ybUZpZWxkPFN0cmluZz4oCiAgICAgICAgICAgIGluaXRpYWxWYWx1ZTogaWNvbiwKICAgICAgICAgICAgZGVjb3JhdGlvbjogY29uc3QgSW5wdXREZWNvcmF0aW9uKGxhYmVsVGV4dDogJ0ljb24nKSwKICAgICAgICAgICAgaXRlbXM6IGNvbnN0IFsn8J+Orycsozwnk5onLCfwn5GnJyw68J+Pgycs8J+npics8J+Suycs8J+bgCcs8J+llScs8J+Ouycs8J+fpycs8J+knF0ubWFwKCh4KSA9PiBEcm9wZG93bk1lbnVJdGVtKHZhbHVlOiB4LCBjaGlsZDogVGV4dCh4KSkpLnRvTGlzdCgpLAogICAgICAgICAgICBvblNlbGVjdGVkOiAodikgeyBpZiAodiAhPSBudWxsKSBzZXQoKCkgPT4gaWNvbiA9IHY7IH0sCiAgICAgICAgICApLAogICAgICAgICAgY29uc3QgU2l6ZWRCb3goaGVpZ2h0OiAxMiksCiAgICAgICAgICBjb25zdCBBbGlnbihhbGlnbm1lbnQ6IEFsaWdubWVudC5jZW50ZXJMZWZ0LCBjaGlsZDogVGV4dCgnUmVwZWF0IG9uJyksCiAgICAgICAgICBXcmFwKHNwYWNpbmc6IDQsIGNoaWxkcmVuOiBMaXN0LmdlbmVyYXRlKDcsIChpKSB7CiAgICAgICAgICAgIGZpbmFsIGRheSA9IGkgKyAxOwogICAgICAgICAgICByZXR1cm4gRmlsdGVyQ2hpcChsYWJlbDogVGV4dChbJ00nLCdUJywnVycsJ1QnLCdGJywnUycsJ1MnXVtpXSksIHNlbGVjdGVkOiBkYXlzLmNvbnRhaW5zKGRheSksIG9uU2VsZWN0ZWQ6ICh2KSA9PiBzZXQoKCkgewogICAgICAgICAgICAgIGlmICh2KSB7IGlmICghZGF5cy5jb250YWlucyhkYXkpKSBkYXlzLmFkZChkYXkpOyB9IGVsc2UgeyBkYXlzLnJlbW92ZShkYXkpOyB9CiAgICAgICAgICAgIH0pKTsKICAgICAgICAgIH0pKSwKICAgICAgICAgIFN3aXRjaExpc3RUaWxlKGNvbnRlbnRQYWRkaW5nOiBFZGdlSW5zZXRzLnplcm8sIHRpdGxlOiBjb25zdCBUZXh0KCdPbmUgcmVtaW5kZXInKSwgdmFsdWU6IHJlbWluZGVyICE9IG51bGwsIG9uQ2hhbmdlZDogKHYpIGFzeW5jIHsgaWYgKCF2KSB7IHNldCgoKSA9PiByZW1pbmRlciA9IG51bGwpOyByZXR1cm47IH0gZmluYWwgdCA9IGF3YWl0IHNob3dUaW1lUGlja2VyKGNvbnRleHQ6IGQsIGluaXRpYWxUaW1lOiBjb25zdCBUaW1lT2ZEYXkoaG91cjogMjAsIG1pbnV0ZTogMCkpOyBpZiAodCAhPSBudWxsKSBzZXQoKCkgPT4gcmVtaW5kZXIgPSB0LmhvdXIgKiA2MCArIHQubWludXRlKTsgfSksCiAgICAgICAgXSksCiAgICAgICAgYWN0aW9uczogWwogICAgICAgICAgaWYgKGhhYml0ICE9IG51bGwpIFRleHRCdXR0b24ob25QcmVzc2VkOiAoKSBhc3luYyB7IGF3YWl0IHMucmVtb3ZlKGhhYml0KTsgIGlmIChkLm1vdW50ZWQpIE5hdmlnYXRvci5wb3AoZCk7IH0sIGNoaWxkOiBjb25zdCBUZXh0KCdEZWxldGUnKSksCiAgICAgICAgICBUZXh0QnV0dG9uKG9uUHJlc3NlZDogKCkgPT4gTmF2aWdhdG9yLnBvcChkKSwgY2hpbGQ6IGNvbnN0IFRleHQoJ0NhbmNlbCcpKSwKICAgICAgICAgIEZpbGxlZEJ1dHRvbihvblByZXNzZWQ6IG5hbWUudGV4dC50cmltKCkuaXNFbXB0eSB8fCBkYXlzLmlzRW1wdHkgPyBudWxsIDogKCkgYXN5bmMgewogICAgICAgICAgICBpZiAoaGFiaXQgPT0gbnVsbCkgeyBhd2FpdCBzLmFkZChuYW1lLnRleHQsIGljb24sIGRheXMsIHJlbWluZGVyKTsgfSBlbHNlIHsgYXdhaXQgcy5lZGl0KGhhYml0LCBuYW1lLnRleHQsIGljb24sIGRheXMsIHJlbWluZGVyKTsgfQogICAgICAgICAgICBpZiAoZC5tb3VudGVkKSBOYXZpZ2F0b3IucG9wKGQpOwogICAgICAgIH0sIGNoaWxkOiBUZXh0KGhhYml0ID09IG51bGwgPyAnQ3JlYXRlJyA6ICdTYXZlJykpLAogICAgICBdLAogICAgKSwKICApLAopOwp9').decode(); p.write_text(s[:a]+r+'\n')"
+          head -n 330 lib/main.dart > /tmp/main.dart
+          cat >> /tmp/main.dart <<'DART'
+          @override
+          Widget build(BuildContext c) => ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text('Profile', style: Theme.of(c).textTheme.headlineSmall),
+              ListTile(title: Text(store.name.isEmpty ? 'Your name' : store.name), trailing: IconButton(onPressed: () => profileEditor(c), icon: const Icon(Icons.edit_outlined))),
+              ListTile(title: const Text('Completions'), trailing: Text('${store.habits.fold<int>(0, (s, h) => s + h.doneDates.length)}')),
+              ListTile(title: const Text('Best streak'), trailing: Text('${store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m)}')),
+              ListTile(title: const Text('Export CSV'), onTap: csvExport),
+              ListTile(title: const Text('Backup JSON'), onTap: backup),
+              ListTile(title: const Text('Restore JSON'), onTap: () => restore(c)),
+              ListTile(title: const Text('Appearance'), subtitle: Text(store.mode.name), onTap: () => themeDialog(c)),
+              ListTile(title: const Text('Achievements'), onTap: () => achievements(c)),
+            ],
+          );
+
+          void themeDialog(BuildContext c) {
+            showDialog<void>(
+              context: c,
+              builder: (d) => SimpleDialog(
+                title: const Text('Appearance'),
+                children: ThemeMode.values.map((m) => SimpleDialogOption(
+                  onPressed: () { store.setMode(m); Navigator.pop(d); },
+                  child: Text(m.name),
+                )).toList(),
+              ),
+            );
+          }
+
+          void achievements(BuildContext c) {
+            final done = store.habits.fold<int>(0, (s, h) => s + h.doneDates.length);
+            final best = store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m);
+            showModalBottomSheet<void>(
+              context: c,
+              builder: (_) => ListView(padding: const EdgeInsets.all(20), children: [
+                const Text('Achievements'),
+                Achievement('🌱', 'First Habit', store.habits.isNotEmpty),
+                Achievement('🔥', '7-day Streak', best >= 7),
+                Achievement('🚀', '30-day Streak', best >= 30),
+                Achievement('💯', '100 Check-ins', done >= 100),
+              ]),
+            );
+          }
+
+          class Achievement extends StatelessWidget {
+            const Achievement(this.icon, this.title, this.ok, {super.key});
+            final String icon, title;
+            final bool ok;
+            @override
+            Widget build(BuildContext c) => ListTile(
+              leading: CircleAvatar(child: Text(icon)),
+              title: Text(title),
+              trailing: Icon(ok ? Icons.check_circle : Icons.lock_outline),
+            );
+          }
+
+          Future<void> editHabit(BuildContext c, Store s, {Habit? habit}) async {
+            final name = TextEditingController(text: habit?.name ?? '');
+            var icon = habit?.icon ?? '🎯';
+            var days = List<int>.from(habit?.days ?? [1, 2, 3, 4, 5, 6, 7]);
+            int? reminder = habit?.reminderMinute;
+            await showDialog<void>(
+              context: c,
+              builder: (d) => StatefulBuilder(
+                builder: (d, set) => AlertDialog(
+                  title: Text(habit == null ? 'Create habit' : 'Edit habit'),
+                  content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(controller: name, decoration: const InputDecoration(labelText: 'Habit name')),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: icon,
+                      decoration: const InputDecoration(labelText: 'Icon'),
+                      items: const ['🎯', '📚', '💧', '🏃', '🧘', '💻', '🛌', '🥗', '🎸', '🧠'].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
+                      onChanged: (v) { if (v != null) set(() => icon = v); },
+                    ),
+                    const SizedBox(height: 12),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Repeat on')),
+                    Wrap(spacing: 4, children: List.generate(7, (i) {
+                      final day = i + 1;
+                      return FilterChip(label: Text(['M', 'T', 'W', 'T', 'F', 'S', 'S'][i]), selected: days.contains(day), onSelected: (v) => set(() {
+                        if (v) { if (!days.contains(day)) days.add(day); } else { days.remove(day); }
+                      }));
+                    })),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('One reminder'),
+                      value: reminder != null,
+                      onChanged: (v) async {
+                        if (!v) { set(() => reminder = null); return; }
+                        final t = await showTimePicker(context: d, initialTime: const TimeOfDay(hour: 20, minute: 0));
+                        if (t != null) set(() => reminder = t.hour * 60 + t.minute);
+                      },
+                    ),
+                  ])),
+                  actions: [
+                    if (habit != null) TextButton(onPressed: () async { await s.remove(habit); if (d.mounted) Navigator.pop(d); }, child: const Text('Delete')),
+                    TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+                    FilledButton(onPressed: name.text.trim().isEmpty || days.isEmpty ? null : () async {
+                      if (habit == null) { await s.add(name.text, icon, days, reminder); } else { await s.edit(habit, name.text, icon, days, reminder); }
+                      if (d.mounted) Navigator.pop(d);
+                    }, child: Text(habit == null ? 'Create' : 'Save')),
+                  ],
+                ),
+              ),
+            );
+          }
+          DART
+          mv /tmp/main.dart lib/main.dart
           dart format lib/main.dart
           flutter analyze lib
       - name: Build release APK
