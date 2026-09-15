@@ -3,9 +3,7 @@ name: Build HabitFlow APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
 
 jobs:
   build:
@@ -22,7 +20,7 @@ jobs:
       - name: Prepare Android project
         run: flutter create --platforms=android --project-name habitflow .
 
-      - name: Configure Android SDK and notification scheduling
+      - name: Configure Android notifications
         run: |
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
           python3 - <<'PY'
@@ -30,12 +28,10 @@ jobs:
           p = Path('android/app/build.gradle.kts')
           s = p.read_text()
           marker = '    defaultConfig {'
-          block = '''    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n        isCoreLibraryDesugaringEnabled = true\n    }\n\n'''
           if 'isCoreLibraryDesugaringEnabled = true' not in s:
-              s = s.replace(marker, block + marker)
-          dep = '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n'
+              s = s.replace(marker, '    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n        isCoreLibraryDesugaringEnabled = true\n    }\n\n' + marker)
           if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in s:
-              s = s.replace('dependencies {\n', 'dependencies {\n' + dep)
+              s = s.replace('dependencies {\n', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n')
           p.write_text(s)
           m = Path('android/app/src/main/AndroidManifest.xml')
           s = m.read_text()
@@ -55,16 +51,23 @@ jobs:
           test -f "$FILE_PICKER_DIR/android/build.gradle"
           sed -i 's/compileSdk 34/compileSdk 36/g' "$FILE_PICKER_DIR/android/build.gradle"
 
-      - name: Repair Dart syntax
+      - name: Repair Dart source
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import base64
           p = Path('lib/main.dart')
           lines = p.read_text().splitlines()
           lines[330] = "  @override Widget build(BuildContext c) => ListView(padding: const EdgeInsets.all(20), children: [Text('Profile', style: Theme.of(c).textTheme.headlineSmall), ListTile(title: Text(store.name.isEmpty ? 'Your name' : store.name), trailing: IconButton(onPressed: () => profileEditor(c), icon: const Icon(Icons.edit_outlined))), ListTile(title: const Text('Completions'), trailing: Text('${store.habits.fold<int>(0, (s, h) => s + h.doneDates.length)}')), ListTile(title: const Text('Best streak'), trailing: Text('${store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m)}')), ListTile(title: const Text('Export CSV'), onTap: csvExport), ListTile(title: const Text('Backup JSON'), onTap: backup), ListTile(title: const Text('Restore JSON'), onTap: () => restore(c)), ListTile(title: const Text('Appearance'), onTap: () => themeDialog(c)), ListTile(title: const Text('Achievements'), onTap: () => achievements(c))]);"
-          lines[331] = base64.b64decode('ICB2b2lkIHRoZW1lRGlhbG9nKEJ1aWxkQ29udGV4dCBjKSB7CiAgICBzaG93RGlhbG9nPHZvaWQ+KAogICAgICBjb250ZXh0OiBjLAogICAgICBidWlsZGVyOiAoZCkgPT4gU2ltcGxlRGlhbG9nKAogICAgICAgIHRpdGxlOiBjb25zdCBUZXh0KCdBcHBlYXJhbmNlJyksCiAgICAgICAgY2hpbGRyZW46IFRoZW1lTW9kZS52YWx1ZXMubWFwKChtKSA9PiBTaW1wbGVEaWFsb2dPcHRpb24oCiAgICAgICAgICBvblByZXNzZWQ6ICgpIHsKICAgICAgICAgICAgc3RvcmUuc2V0TW9kZShtKTsKICAgICAgICAgICAgTmF2aWdhdG9yLnBvcChkKTsKICAgICAgICAgIH0sCiAgICAgICAgICBjaGlsZDogVGV4dChtLm5hbWUpLAogICAgICAgICkpLnRvTGlzdCgpLAogICAgICApLAogICAgKTsKICB9CgogIHZvaWQgYWNoaWV2ZW1lbnRzKEJ1aWxkQ29udGV4dCBjKSB7CiAgICBmaW5hbCBkb25lID0gc3RvcmUuaGFiaXRzLmZvbGQ8aW50PigwLCAocywgaCkgPT4gcyArIGguZG9uZURhdGVzLmxlbmd0aCk7CiAgICBmaW5hbCBiZXN0ID0gc3RvcmUuaGFiaXRzLmZvbGQ8aW50PigwLCAobSwgaCkgPT4gaC5iZXN0U3RyZWFrKCkgPiBtID8gaC5iZXN0U3RyZWFrKCkgOiBtKTsKICAgIHNob3dNb2RhbEJvdHRvbVNoZWV0PHZvaWQ+KAogICAgICBjb250ZXh0OiBjLAogICAgICBidWlsZGVyOiAoXykgPT4gTGlzdFZpZXcoCiAgICAgICAgcGFkZGluZzogY29uc3QgRWRnZUluc2V0cy5hbGwoMjApLAogICAgICAgIGNoaWxkcmVuOiBbCiAgICAgICAgICBjb25zdCBUZXh0KCdBY2hpZXZlbWVudHMnKSwKICAgICAgICAgIEFjaGlldmVtZW50KCfwn4yxJywgJ0ZpcnN0IEhhYml0Jywgc3RvcmUuaGFiaXRzLmlzTm90RW1wdHkpLAogICAgICAgICAgQWNoaWV2ZW1lbnQoJ/CflKUnLCAnNy1kYXkgU3RyZWFrJywgYmVzdCA+PSA3KSwKICAgICAgICAgIEFjaGlldmVtZW50KCfwn5qAJywgJzMwLWRheSBTdHJlYWsnLCBiZXN0ID49IDMwKSwKICAgICAgICAgIEFjaGlldmVtZW50KCfwn5KvJywgJzEwMCBDaGVjay1pbnMnLCBkb25lID49IDEwMCksCiAgICAgICAgXSwKICAgICAgKSwKICAgICk7CiAgfQ==').decode()
-          p.write_text('\\n'.join(lines) + '\\n')
+          lines[331] = '''  void themeDialog(BuildContext c) {
+            showDialog<void>(context: c, builder: (d) => SimpleDialog(title: const Text('Appearance'), children: ThemeMode.values.map((m) => SimpleDialogOption(onPressed: () { store.setMode(m); Navigator.pop(d); }, child: Text(m.name))).toList()));
+          }
+
+          void achievements(BuildContext c) {
+            final done = store.habits.fold<int>(0, (s, h) => s + h.doneDates.length);
+            final best = store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m);
+            showModalBottomSheet<void>(context: c, builder: (_) => ListView(padding: const EdgeInsets.all(20), children: [const Text('Achievements'), Achievement('🌱', 'First Habit', store.habits.isNotEmpty), Achievement('🔥', '7-day Streak', best >= 7), Achievement('🚀', '30-day Streak', best >= 30), Achievement('💯', '100 Check-ins', done >= 100)]));
+          }'''
+          p.write_text('\n'.join(lines) + '\n')
           PY
           dart format lib/main.dart
           flutter analyze lib
