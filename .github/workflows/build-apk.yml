@@ -18,17 +18,16 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: stable
 
       - name: Prepare Flutter project
-        run: |
-          mkdir -p lib
-          mv main.dart lib/main.dart
-          flutter create --platforms=android --project-name habitflow .
+        run: flutter create --platforms=android --project-name habitflow .
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
 
       - name: Build APK
         run: flutter build apk --release
