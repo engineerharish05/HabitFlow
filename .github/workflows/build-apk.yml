@@ -1,0 +1,81 @@
+name: Build HabitFlow APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Android project
+        run: flutter create --platforms=android --project-name habitflow .
+
+      - name: Configure Android SDK
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/build.gradle.kts')
+          s=p.read_text()
+          s=s.replace('compileSdk = flutter.compileSdkVersion','compileSdk = 36')
+          if 'isCoreLibraryDesugaringEnabled = true' not in s:
+              s=s.replace('    defaultConfig {','    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n        isCoreLibraryDesugaringEnabled = true\n    }\n\n    defaultConfig {')
+          if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' not in s:
+              s=s.replace('dependencies {','dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
+          p.write_text(s)
+          PY
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Patch file_picker Android SDK
+        run: |
+          f="$PUB_CACHE/hosted/pub.dev/file_picker-8.1.7/android/build.gradle"
+          test -f "$f"
+          sed -i 's/compileSdk 34/compileSdk 36/g' "$f"
+
+      - name: Debug and repair source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/main.dart')
+          s=p.read_text()
+          s=s.replace("h.done.contains(k)?h.done.remove(k):(h.done.add(k),HapticFeedback.mediumImpact());", "if (h.done.contains(k)) { h.done.remove(k); } else { h.done.add(k); HapticFeedback.mediumImpact(); }")
+          s=s.replace("String _timeText(int minutes) {\n  final t = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);\n  return t.format(navigatorKey.currentContext!);\n}\nfinal navigatorKey = GlobalKey<NavigatorState>();", "String _timeText(int minutes) => clock(minutes);")
+          s=s.replace("String _timeText(int minutes) => clock(minutes);", "")
+          p.write_text(s)
+          PY
+          dart format lib/main.dart
+          flutter analyze lib
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Persist verified source repair
+        run: |
+          if ! git diff --quiet -- lib/main.dart; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/main.dart
+            git commit -m "Repair verified HabitFlow source"
+            git push
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HabitFlow-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
