@@ -10,7 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,16 +19,16 @@ jobs:
         with:
           channel: stable
 
-      - name: Prepare Flutter project
+      - name: Prepare Android project
         run: flutter create --platforms=android --project-name habitflow .
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze
-        run: flutter analyze
+      - name: Analyze app source
+        run: flutter analyze lib
 
-      - name: Build APK
+      - name: Build release APK
         run: flutter build apk --release
 
       - name: Upload APK
