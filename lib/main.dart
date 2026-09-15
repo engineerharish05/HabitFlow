@@ -34,7 +34,7 @@ class Habit {
     int best = 0, run = 0;
     DateTime? prev;
     for (final d in ds) {
-      run = prev != null && d.difference(prev!).inDays == 1 ? run + 1 : 1;
+      run = prev != null && d.difference(prev).inDays == 1 ? run + 1 : 1;
       if (run > best) best = run;
       prev = d;
     }
@@ -45,7 +45,9 @@ class Habit {
     if (!done(d)) d = d.subtract(const Duration(days: 1));
     var n = 0;
     for (var i = 0; i < 366; i++) {
-      while (!scheduled(d)) d = d.subtract(const Duration(days: 1));
+      while (!scheduled(d)) {
+        d = d.subtract(const Duration(days: 1));
+      }
       if (!done(d)) break;
       n++;
       d = d.subtract(const Duration(days: 1));
@@ -83,7 +85,12 @@ class Store extends ChangeNotifier {
   }
   Future<void> toggle(Habit h, DateTime d) async {
     final k = dateKey(d);
-    if (h.doneDates.contains(k)) { h.doneDates.remove(k); } else { h.doneDates.add(k); HapticFeedback.mediumImpact(); }
+    if (h.doneDates.contains(k)) {
+      h.doneDates.remove(k);
+    } else {
+      h.doneDates.add(k);
+      HapticFeedback.mediumImpact();
+    }
     await save();
   }
   Future<void> add(String n,String i,List<int>d) async { habits.add(Habit(id:DateTime.now().microsecondsSinceEpoch.toString(),name:n.trim(),icon:i,days:d)); await save(); }
@@ -96,11 +103,15 @@ class Store extends ChangeNotifier {
   }
   Future<void> setMode(ThemeMode m) async { mode=m; await p?.setString('mode',m.name); notifyListeners(); }
   Future<void> finish() async { onboarded=true; await p?.setBool('onboarded',true); notifyListeners(); }
-  Map<String,dynamic> backup() => {'version':1,'name':name,'habits':habits.map((h)=>h.json()).toList()};
+  Map<String,dynamic> backup() => {'version':1,'name':name,'mode':mode.name,'habits':habits.map((h)=>h.json()).toList()};
   Future<void> restore(String raw) async {
     final j=Map<String,dynamic>.from(jsonDecode(raw));
-    habits..clear()..addAll((j['habits'] as List).map((e)=>Habit.fromJson(Map<String,dynamic>.from(e))));
-    name=(j['name'] as String?) ?? name; await p?.setString('name',name); await save();
+    final restored=(j['habits'] as List?) ?? const [];
+    habits..clear()..addAll(restored.map((e)=>Habit.fromJson(Map<String,dynamic>.from(e))));
+    name=(j['name'] as String?) ?? name;
+    final savedMode=j['mode'] as String?;
+    if(savedMode != null) mode=ThemeMode.values.firstWhere((x)=>x.name==savedMode,orElse:()=>ThemeMode.system);
+    await p?.setString('name',name); await p?.setString('mode',mode.name); await save();
   }
 }
 
@@ -276,7 +287,7 @@ class Profile extends StatelessWidget {
       ])),
     ]);
   }
-  void themeDialog(BuildContext c)=>showDialog<void>(context:c,builder:(x)=>SimpleDialog(title:const Text('Appearance'),children:ThemeMode.values.map((m)=>RadioListTile<ThemeMode>(value:m,groupValue:store.mode,title:Text(m.name),onChanged:(v){if(v!=null){store.setMode(v);Navigator.pop(x);}})).toList()));
+  void themeDialog(BuildContext c)=>showDialog<void>(context:c,builder:(x)=>SimpleDialog(title:const Text('Appearance'),children:ThemeMode.values.map((m)=>SimpleDialogOption(onPressed:(){store.setMode(m);Navigator.pop(x);},child:Row(children:[Icon(store.mode==m?Icons.radio_button_checked:Icons.radio_button_unchecked),const SizedBox(width:12),Text(m.name)])).toList()));
   void achievements(BuildContext c){final done=store.habits.fold<int>(0,(s,h)=>s+h.doneDates.length),best=store.habits.fold<int>(0,(m,h)=>h.bestStreak()>m?h.bestStreak():m);showModalBottomSheet<void>(context:c,showDragHandle:true,builder:(_)=>ListView(padding:const EdgeInsets.all(20),children:[const Text('Achievements',style:TextStyle(fontSize:22,fontWeight:FontWeight.bold)),Achievement('🌱','First Habit',store.habits.isNotEmpty),Achievement('🔥','7-day Streak',best>=7),Achievement('🚀','30-day Streak',best>=30),Achievement('💯','100 Check-ins',done>=100)]));}
 }
 class Achievement extends StatelessWidget{const Achievement(this.icon,this.title,this.ok,{super.key});final String icon,title;final bool ok;@override Widget build(BuildContext c)=>ListTile(leading:CircleAvatar(child:Text(icon)),title:Text(title),trailing:Icon(ok?Icons.check_circle:Icons.lock_outline,color:ok?Theme.of(c).colorScheme.primary:Colors.grey));}
@@ -288,7 +299,7 @@ Future<void> editHabit(BuildContext c,Store s,{Habit? habit}) async {
       Text(habit==null?'Create habit':'Edit habit',style:const TextStyle(fontSize:22,fontWeight:FontWeight.bold)),const SizedBox(height:15),
       TextField(controller:n,decoration:const InputDecoration(labelText:'Habit name')),const SizedBox(height:15),const Text('Icon',style:TextStyle(fontWeight:FontWeight.bold)),
       Wrap(spacing:6,children:icons.map((x)=>ChoiceChip(label:Text(x),selected:icon==x,onSelected:(_)=>set(()=>icon=x))).toList()),const SizedBox(height:15),
-      const Text('Repeat on',style:TextStyle(fontWeight:FontWeight.bold)),Wrap(spacing:6,children:List.generate(7,(i){final d=i+1;const labels=['M','T','W','T','F','S','S'];return FilterChip(label:Text(labels[i]),selected:days.contains(d),onSelected:(v)=>set(()=>v?days.add(d):days.remove(d)));})),
+      const Text('Repeat on',style:TextStyle(fontWeight:FontWeight.bold)),Wrap(spacing:6,children:List.generate(7,(i){final d=i+1;const labels=['M','T','W','T','F','S','S'];return FilterChip(label:Text(labels[i]),selected:days.contains(d),onSelected:(v)=>set(()=>v?days.add(d):days.remove(d));})),
       const SizedBox(height:20),SizedBox(width:double.infinity,child:FilledButton(onPressed:n.text.trim().isEmpty||days.isEmpty?null:()async{if(habit==null){await s.add(n.text,icon,days);}else{await s.edit(habit,n.text,icon,days);}if(ctx.mounted)Navigator.pop(ctx);},child:Text(habit==null?'Create habit':'Save'))),
       if(habit!=null)SizedBox(width:double.infinity,child:TextButton.icon(onPressed:()async{await s.remove(habit);if(ctx.mounted)Navigator.pop(ctx);},icon:const Icon(Icons.delete_outline),label:const Text('Delete habit'))),
     ]))));
