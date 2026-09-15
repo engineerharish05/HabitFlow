@@ -16,18 +16,8 @@ jobs:
           channel: stable
       - name: Create Android project
         run: flutter create --platforms=android --project-name habitflow .
-      - name: Configure Android
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('android/app/build.gradle.kts'); s=p.read_text()
-          s=s.replace('compileSdk = flutter.compileSdkVersion','compileSdk = 36')
-          if 'isCoreLibraryDesugaringEnabled = true' not in s:
-            s=s.replace('    defaultConfig {','    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n        isCoreLibraryDesugaringEnabled = true\n    }\n\n    defaultConfig {')
-          if 'desugar_jdk_libs:2.1.4' not in s:
-            s=s.replace('dependencies {','dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
-          p.write_text(s)
-          PY
+      - name: Set Android compile SDK
+        run: sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
       - name: Install dependencies
         run: flutter pub get
       - name: Patch file_picker
