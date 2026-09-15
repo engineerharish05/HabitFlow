@@ -56,18 +56,59 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('lib/main.dart')
-          lines = p.read_text().splitlines()
+          s = p.read_text()
+          lines = s.splitlines()
           lines[330] = "  @override Widget build(BuildContext c) => ListView(padding: const EdgeInsets.all(20), children: [Text('Profile', style: Theme.of(c).textTheme.headlineSmall), ListTile(title: Text(store.name.isEmpty ? 'Your name' : store.name), trailing: IconButton(onPressed: () => profileEditor(c), icon: const Icon(Icons.edit_outlined))), ListTile(title: const Text('Completions'), trailing: Text('${store.habits.fold<int>(0, (s, h) => s + h.doneDates.length)}')), ListTile(title: const Text('Best streak'), trailing: Text('${store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m)}')), ListTile(title: const Text('Export CSV'), onTap: csvExport), ListTile(title: const Text('Backup JSON'), onTap: backup), ListTile(title: const Text('Restore JSON'), onTap: () => restore(c)), ListTile(title: const Text('Appearance'), onTap: () => themeDialog(c)), ListTile(title: const Text('Achievements'), onTap: () => achievements(c))]);"
-          lines[331] = '''  void themeDialog(BuildContext c) {
-            showDialog<void>(context: c, builder: (d) => SimpleDialog(title: const Text('Appearance'), children: ThemeMode.values.map((m) => SimpleDialogOption(onPressed: () { store.setMode(m); Navigator.pop(d); }, child: Text(m.name))).toList()));
-          }
-
-          void achievements(BuildContext c) {
-            final done = store.habits.fold<int>(0, (s, h) => s + h.doneDates.length);
-            final best = store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m);
-            showModalBottomSheet<void>(context: c, builder: (_) => ListView(padding: const EdgeInsets.all(20), children: [const Text('Achievements'), Achievement('🌱', 'First Habit', store.habits.isNotEmpty), Achievement('🔥', '7-day Streak', best >= 7), Achievement('🚀', '30-day Streak', best >= 30), Achievement('💯', '100 Check-ins', done >= 100)]));
-          }'''
-          p.write_text('\n'.join(lines) + '\n')
+          lines[331] = "  void themeDialog(BuildContext c) => showDialog<void>(context: c, builder: (d) => SimpleDialog(title: const Text('Appearance'), children: ThemeMode.values.map((m) => SimpleDialogOption(onPressed: () { store.setMode(m); Navigator.pop(d); }, child: Text(m.name))).toList()));\n  void achievements(BuildContext c) { final done = store.habits.fold<int>(0, (s, h) => s + h.doneDates.length); final best = store.habits.fold<int>(0, (m, h) => h.bestStreak() > m ? h.bestStreak() : m); showModalBottomSheet<void>(context: c, builder: (_) => ListView(padding: const EdgeInsets.all(20), children: [const Text('Achievements'), Achievement('🌱', 'First Habit', store.habits.isNotEmpty), Achievement('🔥', '7-day Streak', best >= 7), Achievement('🚀', '30-day Streak', best >= 30), Achievement('💯', '100 Check-ins', done >= 100)])); }"
+          s = '\n'.join(lines) + '\n'
+          start = s.index('Future<void> editHabit')
+          replacement = '''Future<void> editHabit(BuildContext c, Store s, {Habit? habit}) async {
+  final name = TextEditingController(text: habit?.name ?? '');
+  var icon = habit?.icon ?? '🎯';
+  var days = List<int>.from(habit?.days ?? [1, 2, 3, 4, 5, 6, 7]);
+  int? reminder = habit?.reminderMinute;
+  await showDialog<void>(
+    context: c,
+    builder: (d) => StatefulBuilder(
+      builder: (d, set) => AlertDialog(
+        title: Text(habit == null ? 'Create habit' : 'Edit habit'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: name, decoration: const InputDecoration(labelText: 'Habit name')),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: icon,
+            decoration: const InputDecoration(labelText: 'Icon'),
+            items: const ['🎯','📚','💧','🏃','🧘','💻','🛌','🥗','🎸','🧠'].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
+            onChanged: (v) { if (v != null) set(() => icon = v); },
+          ),
+          const SizedBox(height: 12),
+          const Align(alignment: Alignment.centerLeft, child: Text('Repeat on')),
+          Wrap(spacing: 4, children: List.generate(7, (i) {
+            final day = i + 1;
+            return FilterChip(label: Text(['M','T','W','T','F','S','S'][i]), selected: days.contains(day), onSelected: (v) => set(() {
+              if (v) { if (!days.contains(day)) days.add(day); } else { days.remove(day); }
+            }));
+          })),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('One reminder'), value: reminder != null, onChanged: (v) async {
+            if (!v) { set(() => reminder = null); return; }
+            final t = await showTimePicker(context: d, initialTime: const TimeOfDay(hour: 20, minute: 0));
+            if (t != null) set(() => reminder = t.hour * 60 + t.minute);
+          }),
+        ])),
+        actions: [
+          if (habit != null) TextButton(onPressed: () async { await s.remove(habit); if (d.mounted) Navigator.pop(d); }, child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          FilledButton(onPressed: name.text.trim().isEmpty || days.isEmpty ? null : () async {
+            if (habit == null) { await s.add(name.text, icon, days, reminder); } else { await s.edit(habit, name.text, icon, days, reminder); }
+            if (d.mounted) Navigator.pop(d);
+          }, child: Text(habit == null ? 'Create' : 'Save')),
+        ],
+      ),
+    ),
+  );
+}
+'''
+          p.write_text(s[:start] + replacement)
           PY
           dart format lib/main.dart
           flutter analyze lib
