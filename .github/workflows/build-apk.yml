@@ -23,18 +23,22 @@ jobs:
         run: flutter create --platforms=android --project-name habitflow .
 
       - name: Set Android compile SDK
-        run: sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
+        run: |
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
+          grep -n "compileSdk" android/app/build.gradle.kts
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Fix Dart closing parentheses
+      - name: Patch file_picker Android compile SDK
         run: |
-          sed -i '132s/]))));/])))));/' lib/main.dart
-          sed -i '294s/]))));/])))));/' lib/main.dart
+          FILE_PICKER_DIR="$PUB_CACHE/hosted/pub.dev/file_picker-8.1.7"
+          test -f "$FILE_PICKER_DIR/android/build.gradle"
+          sed -i 's/compileSdk 34/compileSdk 36/g' "$FILE_PICKER_DIR/android/build.gradle"
+          grep -n "compileSdk" "$FILE_PICKER_DIR/android/build.gradle"
 
-      - name: Analyze app source
-        run: flutter analyze lib || true
+      - name: Verify Dart code
+        run: flutter analyze lib
 
       - name: Build release APK
         run: flutter build apk --release
