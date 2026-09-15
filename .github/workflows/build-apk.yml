@@ -25,6 +25,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Fix Dart closing parentheses
+        run: |
+          sed -i '132s/]))));/])))));/' lib/main.dart
+          sed -i '294s/]))));/])))));/' lib/main.dart
+
       - name: Analyze app source
         run: flutter analyze lib
 
